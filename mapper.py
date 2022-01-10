@@ -1,8 +1,11 @@
+import base64
+
 import cv2
 import numpy as np
 import tensorflow as tf
 from starmart.input import Input, ImageInput
-from starmart.result import Result, CompositeResult, NamedResult, ImageResult, ClassificationResult, Classification
+from starmart.result import Result, CompositeResult, NamedResult, ImageResult, ClassificationResult, Classification, \
+    Failure
 from tensorflow.keras.applications.resnet50 import preprocess_input, decode_predictions
 
 model = None
@@ -14,8 +17,13 @@ def pre_start() -> None:
 
 
 def infer(data: Input) -> Result:
+    if not isinstance(data, ImageInput):
+        return Failure('Invalid input type')
+    # decoding bsae64 image
+    nparr = np.fromstring(base64.b64decode(data.data), np.uint8)
+    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     # preprocessing image
-    img = cv2.resize(data, (224, 224))
+    img = cv2.resize(img, (224, 224))
     img = np.expand_dims(img, axis=0)
     img = preprocess_input(img)
 
@@ -28,7 +36,7 @@ def infer(data: Input) -> Result:
     classifications = []
     for prediction in decoded_predictions:
         classifications.append(Classification(label=prediction[1],
-                                              confidence=prediction[2]))
+                                              confidence=prediction[2].item()))
 
     return ClassificationResult(classifications)
 
